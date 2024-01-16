@@ -1,5 +1,6 @@
 from Bio import SeqIO
 import argparse
+from tqdm import tqdm
 
 def reverse_complement(seq):
     complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}
@@ -8,26 +9,26 @@ def reverse_complement(seq):
 
 def make_dotplot(seq1, seq2, k_size):
     
-    
     # create dict with kmers indexes from seq1
     kmers_seq1_dict = {}
-    kmers_seq1_dict_rc = {}
-    for s1_ind in range(len(seq1) - k_size+ 1):
-        kmer = seq1[s1_ind:s1_ind+k_size]
+    # kmers_seq1_dict_rc = {}
+    for s1_ind in tqdm(range(len(seq1) - k_size+ 1)):
+        kmer = seq1[s1_ind:s1_ind+ k_size]
 
         if kmer not in kmers_seq1_dict:
             kmers_seq1_dict[kmer] = set()
         kmers_seq1_dict[kmer].add(s1_ind)
 
-        rc_kmer = reverse_complement(kmer)
-        if rc_kmer not in kmers_seq1_dict_rc:
-            kmers_seq1_dict_rc[rc_kmer] = set()
-        kmers_seq1_dict_rc[rc_kmer].add(s1_ind)
-
+        # rc_kmer = reverse_complement(kmer)
+        # if rc_kmer not in kmers_seq1_dict_rc:
+        #     kmers_seq1_dict_rc[rc_kmer] = set()
+        # kmers_seq1_dict_rc[rc_kmer].add(s1_ind)
+    print('seq1 kmers created')
+    
     dotplot_exact = []
     dotplot_rc = []
 
-    for s2_ind in range(len(seq2) - k_size+ 1):
+    for s2_ind in tqdm(range(len(seq2) - k_size+ 1)):
         kmer = seq2[s2_ind:s2_ind+k_size]
 
         # exact match: s2 kmer in s1 kmers
@@ -39,12 +40,11 @@ def make_dotplot(seq1, seq2, k_size):
         
         # reverce complement (rc) match: s2 kmer in rc_s1 kmers or rc_s2 kmer in s1_kmers 
         reverse_complement_kmer = reverse_complement(kmer)
-        if (kmer in kmers_seq1_dict_rc) or (reverse_complement_kmer in kmers_seq1_dict):
+        if reverse_complement_kmer in kmers_seq1_dict:
 
-            for s1_ind in kmers_seq1_dict_rc[kmer]:
+            for s1_ind in kmers_seq1_dict[kmer]:
                 # dotplot_rc[kmer].add((s1_ind, s2_ind))
                 dotplot_rc.append((s1_ind, s2_ind))
-                
 
     return dotplot_exact, dotplot_rc
 
@@ -201,7 +201,7 @@ def count_cycles(adjacency_list):
     return cycles
 
 def load_data():
-    human_seqs_path = 'data/chrX_human.fa'
+    human_seqs_path = 'test_data/chrX_human.fa'
     human_seqs = []
     for record in SeqIO.parse(human_seqs_path, "fasta"):
         human_seqs.append(str(record.seq))
@@ -209,7 +209,7 @@ def load_data():
     human_seq = human_seqs[0]
     human_seq = ''.join([i.upper() for i in human_seq if i.upper() != 'N'])
 
-    mouse_seqs_path = 'data/chrX_mouse.fa'
+    mouse_seqs_path = 'data/test_chrX_mouse.fa'
     mouse_seqs = []
     for record in SeqIO.parse(mouse_seqs_path, "fasta"):
         mouse_seqs.append(str(record.seq))
