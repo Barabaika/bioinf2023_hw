@@ -42,7 +42,7 @@ def make_dotplot(seq1, seq2, k_size):
         reverse_complement_kmer = reverse_complement(kmer)
         if reverse_complement_kmer in kmers_seq1_dict:
 
-            for s1_ind in kmers_seq1_dict[kmer]:
+            for s1_ind in kmers_seq1_dict[reverse_complement_kmer]:
                 # dotplot_rc[kmer].add((s1_ind, s2_ind))
                 dotplot_rc.append((s1_ind, s2_ind))
 
@@ -201,7 +201,7 @@ def count_cycles(adjacency_list):
     return cycles
 
 def load_data():
-    human_seqs_path = 'test_data/chrX_human.fa'
+    human_seqs_path = 'data/chrX_human.fa'
     human_seqs = []
     for record in SeqIO.parse(human_seqs_path, "fasta"):
         human_seqs.append(str(record.seq))
@@ -209,7 +209,7 @@ def load_data():
     human_seq = human_seqs[0]
     human_seq = ''.join([i.upper() for i in human_seq if i.upper() != 'N'])
 
-    mouse_seqs_path = 'data/test_chrX_mouse.fa'
+    mouse_seqs_path = 'data/chrX_mouse.fa'
     mouse_seqs = []
     for record in SeqIO.parse(mouse_seqs_path, "fasta"):
         mouse_seqs.append(str(record.seq))
