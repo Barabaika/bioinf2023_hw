@@ -1,6 +1,8 @@
 from Bio import SeqIO
 import argparse
 from tqdm import tqdm
+import gc
+import io
 
 def reverse_complement(seq):
     complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}
@@ -24,9 +26,18 @@ def make_dotplot(seq1, seq2, k_size):
         #     kmers_seq1_dict_rc[rc_kmer] = set()
         # kmers_seq1_dict_rc[rc_kmer].add(s1_ind)
     print('seq1 kmers created')
+    del seq1
+    gc.collect()
     
-    dotplot_exact = []
-    dotplot_rc = []
+    with open('/data/ashevtsov/tmp_exact_kmers.txt', 'w') as f:
+        pass
+    with open('/data/ashevtsov/tmp_rc_kmers.txt', 'w') as f:
+        pass
+
+    f_exact = open('./tmp_exact_kmers.txt', 'ba+')
+    exact_buffered_file = io.BufferedWriter(f_exact)
+    f_rc = open('./tmp_rc_kmers.txt', 'ba+')
+    rc_buffered_file = io.BufferedWriter(f_rc)
 
     for s2_ind in tqdm(range(len(seq2) - k_size+ 1)):
         kmer = seq2[s2_ind:s2_ind+k_size]
@@ -34,19 +45,31 @@ def make_dotplot(seq1, seq2, k_size):
         # exact match: s2 kmer in s1 kmers
         if kmer in kmers_seq1_dict:
 
+            # with open('./tmp_exact_kmers.txt', 'a+') as f_exact:
             for s1_ind in kmers_seq1_dict[kmer]:
-                # dotplot_rc[kmer].add((s1_ind, s2_ind))
-                dotplot_exact.append((s1_ind, s2_ind))
+                # dotplot_exact.append((s1_ind, s2_ind))
+                text=f'{s1_ind},{s2_ind}\n'
+                exact_buffered_file.write(text.encode('utf-8'))
+                
         
         # reverce complement (rc) match: s2 kmer in rc_s1 kmers or rc_s2 kmer in s1_kmers 
         reverse_complement_kmer = reverse_complement(kmer)
         if reverse_complement_kmer in kmers_seq1_dict:
 
+            # with open('./tmp_rc_kmers.txt', 'a+') as f:
             for s1_ind in kmers_seq1_dict[reverse_complement_kmer]:
-                # dotplot_rc[kmer].add((s1_ind, s2_ind))
-                dotplot_rc.append((s1_ind, s2_ind))
+            # dotplot_rc.append((s1_ind, s2_ind))
+                text=f'{s1_ind},{s2_ind}\n'
+                rc_buffered_file.write(text.encode('utf-8'))
+                
+    exact_buffered_file.close()
+    rc_buffered_file.close()
 
-    return dotplot_exact, dotplot_rc
+    f_exact.close()
+    f_rc.close()
+    
+
+    # return dotplot_exact, dotplot_rc
 
 
 def remove_used_nodes(syntency_block, curr_nodes):
@@ -219,6 +242,36 @@ def load_data():
     return human_seq, mouse_seq
 
 
+def load_tmp_dotplot():
+    dotplot = []
+    with open('./tmp_exact_kmers.txt', 'r') as f:
+        while True: 
+            # Get next line from file
+            line = f.readline()
+            # if line is empty
+            # end of file is reached
+            if not line:
+                break
+            line = line[:-1]
+            indxs = [int(i) for i in line.split(',')]
+            dotplot.append(indxs)
+    
+    dotplot_rc = []
+    with open('./tmp_rc_kmers.txt', 'r') as f:
+        while True: 
+            # Get next line from file
+            line = f.readline()
+            # if line is empty
+            # end of file is reached
+            if not line:
+                break
+            line = line[:-1]
+            indxs = [int(i) for i in line.split(',')]
+            dotplot_rc.append(indxs)
+
+    return dotplot, dotplot_rc
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-k', '--kmer_size', default=100)
@@ -241,11 +294,19 @@ if __name__ == "__main__":
     print('\tlen seq2:', len(mouse_seq))
 
     print('1: start making dotplot')
-    dotplot, dotplot_rc = make_dotplot(mouse_seq, human_seq, kmer_size)
+    # dotplot, dotplot_rc = make_dotplot(mouse_seq, human_seq, kmer_size)
+    make_dotplot(mouse_seq, human_seq, kmer_size)
+    del human_seq, mouse_seq
+    gc.collect()
+    dotplot, dotplot_rc = load_tmp_dotplot()
     dotplot_sorted = sorted(dotplot)
     dotplot_rc_sorted = sorted(dotplot_rc)
-    print('\tnumber of points in dotplot forward:', len(dotplot))
-    print('\tnumber of points in dotplot reverse:', len(dotplot_rc))
+    
+    del dotplot, dotplot_rc
+    gc.collect()
+
+    print('\tnumber of points in dotplot forward:', len(dotplot_sorted))
+    print('\tnumber of points in dotplot reverse:', len(dotplot_rc_sorted))
 
     print('2: start making syntency blocks')
     syntency_blocks, syntency_blocks_seq1, syntency_blocks_seq2 = find_syntency_blocks(dotplot_sorted, max_distance, min_syntency_block_size)

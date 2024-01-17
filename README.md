@@ -30,7 +30,11 @@ load data and store it to ./data as chrX_human.fa and chrX_mouse.fa: \
 `wget -O data/chrX_mouse.fa.gz https://hgdownload.soe.ucsc.edu/goldenPath/mm39/chromosomes/chrX.fa.gz` \
 `gzip -d chrX_human.fa.gz`
 `gzip -d chrX_mouse.fa.gz`
-**code to run full data:** `python hw_3_2break_dist.py -k 50 --max_distance 3 --min_syntency_block_size 10` \
+**code to run full data:** `python hw_3_2break_dist.py -k 20 --max_distance 3 --min_syntency_block_size 10` \
 **code to run test sequence:** `python hw_3_2break_dist.py -k 3 --max_distance 2 --min_syntency_block_size 1 --test` \
 **notes:** can not process full sequences (150 mln letters). Run out of memory
+
+## HW 4:
+**reproduse:** `python hw_4_lrs.py banana` \
+**notes:** substrings can be overlaped
 
