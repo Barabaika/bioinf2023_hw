@@ -18,8 +18,8 @@ def make_dotplot(seq1, seq2, k_size):
         kmer = seq1[s1_ind:s1_ind+ k_size]
 
         if kmer not in kmers_seq1_dict:
-            kmers_seq1_dict[kmer] = set()
-        kmers_seq1_dict[kmer].add(s1_ind)
+            kmers_seq1_dict[kmer] = []
+        kmers_seq1_dict[kmer].append(s1_ind)
 
         # rc_kmer = reverse_complement(kmer)
         # if rc_kmer not in kmers_seq1_dict_rc:
@@ -29,9 +29,9 @@ def make_dotplot(seq1, seq2, k_size):
     del seq1
     gc.collect()
     
-    with open('/data/ashevtsov/tmp_exact_kmers.txt', 'w') as f:
+    with open('./tmp_exact_kmers.txt', 'w') as f:
         pass
-    with open('/data/ashevtsov/tmp_rc_kmers.txt', 'w') as f:
+    with open('./tmp_rc_kmers.txt', 'w') as f:
         pass
 
     f_exact = open('./tmp_exact_kmers.txt', 'ba+')
@@ -39,17 +39,18 @@ def make_dotplot(seq1, seq2, k_size):
     f_rc = open('./tmp_rc_kmers.txt', 'ba+')
     rc_buffered_file = io.BufferedWriter(f_rc)
 
+    len_dotplot_exact = 0
+    len_dotplot_rc = 0
     for s2_ind in tqdm(range(len(seq2) - k_size+ 1)):
         kmer = seq2[s2_ind:s2_ind+k_size]
 
         # exact match: s2 kmer in s1 kmers
         if kmer in kmers_seq1_dict:
-
-            # with open('./tmp_exact_kmers.txt', 'a+') as f_exact:
             for s1_ind in kmers_seq1_dict[kmer]:
                 # dotplot_exact.append((s1_ind, s2_ind))
-                text=f'{s1_ind},{s2_ind}\n'
+                text=f'{s2_ind},{s1_ind}\n'
                 exact_buffered_file.write(text.encode('utf-8'))
+                len_dotplot_exact+=1
                 
         
         # reverce complement (rc) match: s2 kmer in rc_s1 kmers or rc_s2 kmer in s1_kmers 
@@ -59,8 +60,9 @@ def make_dotplot(seq1, seq2, k_size):
             # with open('./tmp_rc_kmers.txt', 'a+') as f:
             for s1_ind in kmers_seq1_dict[reverse_complement_kmer]:
             # dotplot_rc.append((s1_ind, s2_ind))
-                text=f'{s1_ind},{s2_ind}\n'
+                text=f'{s2_ind},{s1_ind}\n'
                 rc_buffered_file.write(text.encode('utf-8'))
+                len_dotplot_rc+=1
                 
     exact_buffered_file.close()
     rc_buffered_file.close()
@@ -68,7 +70,7 @@ def make_dotplot(seq1, seq2, k_size):
     f_exact.close()
     f_rc.close()
     
-
+    return len_dotplot_exact, len_dotplot_rc
     # return dotplot_exact, dotplot_rc
 
 
@@ -95,20 +97,42 @@ def find_near_nodes(syntency_block, curr_nodes, max_distance):
 
 
 
-def find_syntency_blocks(dotplot, max_distance, min_syntency_block_size):
-        syntency_blocks_seq1 = []
-        syntency_blocks_seq2 = []
-        syntency_blocks = []
-        syntency_block = [dotplot[0]]
+def find_syntency_blocks(type_dotplot, len_dotplot, max_distance, min_syntency_block_size):
+        
+        if type_dotplot == 'exact':
+            path = './tmp_exact_kmers.txt'
+        else:
+            path = './tmp_rc_kmers.txt'
         
         curr_node_ind= 0
         next_node_ind = 1
-        # for next_node_ind in range(1, len(dotplot)):
-        while next_node_ind < len(dotplot):
+        
+        f = open(path, 'br')
+        buffered_file = io.BufferedReader(f)
+
+        dotplot_skelet = [0]*len_dotplot
+        # print(len_dotplot)
+
+        line = buffered_file.readline()
+        dotplot_skelet[curr_node_ind] = [int(i) for i in line[:-1].split(b',')]
+        # print('load',curr_node_ind)
+        line = buffered_file.readline()
+        dotplot_skelet[next_node_ind] = [int(i) for i in line[:-1].split(b',')]
+        # print('load',next_node_ind)
+
+        syntency_blocks_seq1 = []
+        syntency_blocks_seq2 = []
+        syntency_blocks = []
+        syntency_block = [dotplot_skelet[0]]
+        
+        while True:
+                # print('need curr_node_ind',curr_node_ind)
+                node = dotplot_skelet[curr_node_ind]
+                # print(node)
+                # print('need next_node_ind',next_node_ind)
+                next_node = dotplot_skelet[next_node_ind]
+                # print(next_node)
                 
-                # print(next_node_ind)
-                node = dotplot[curr_node_ind]
-                next_node = dotplot[next_node_ind]
 
                 # print(node, next_node)
                 # print('diffs',next_node[0]- node[0], next_node[1]- node[1])
@@ -119,24 +143,38 @@ def find_syntency_blocks(dotplot, max_distance, min_syntency_block_size):
                         curr_node_ind = next_node_ind
 
                 if abs(next_node[0] - node[0]) > max_distance and abs(next_node[1] - node[1]) > max_distance:
-                        
+                        # print('stop and add')
                         if len(syntency_block) >= min_syntency_block_size:
                                 syntency_blocks.append(syntency_block)
                                 syntency_blocks_seq1.append(min(syntency_block)[0])
                                 syntency_blocks_seq2.append(min([(i[1], i[0]) for i in syntency_block])[0])
                                 
-                        curr_node_ind +=1
-                        next_node_ind = curr_node_ind +1
-                        syntency_block = [dotplot[curr_node_ind]]
-                        continue
+                        curr_node_ind += 1 # may be here we need to add len(syntency_block) or 1 ?
+                        next_node_ind = curr_node_ind
+                        # print('need if',curr_node_ind)
+                        syntency_block = [dotplot_skelet[curr_node_ind]]
+                        
+                        # dotplot_skelet[next_node_ind] = [int(i) for i in buffered_file.readline()[:-1].split(b',')]
+                        # print(dotplot_skelet)
+                        dotplot_skelet[:curr_node_ind-1] = [0]*(curr_node_ind-1)
+                        # continue
 
                 next_node_ind +=1
-
+                # print('load',next_node_ind)
+                if next_node_ind >= len_dotplot-1:
+                    break
+                if dotplot_skelet[next_node_ind] == 0:
+                    dotplot_skelet[next_node_ind] = [int(i) for i in buffered_file.readline()[:-1].split(b',')]
+                # print(dotplot_skelet)
 
         if len(syntency_block) >= min_syntency_block_size:
                 syntency_blocks.append(syntency_block)
                 syntency_blocks_seq1.append(min(syntency_block)[0])
                 syntency_blocks_seq2.append(min([(i[1], i[0]) for i in syntency_block])[0])
+
+        f.close()
+        buffered_file.close() 
+        # print('syntency_blocks', syntency_blocks)  
 
         # return syntency_blocks
         return syntency_blocks, syntency_blocks_seq1, syntency_blocks_seq2
@@ -242,34 +280,34 @@ def load_data():
     return human_seq, mouse_seq
 
 
-def load_tmp_dotplot():
-    dotplot = []
-    with open('./tmp_exact_kmers.txt', 'r') as f:
-        while True: 
-            # Get next line from file
-            line = f.readline()
-            # if line is empty
-            # end of file is reached
-            if not line:
-                break
-            line = line[:-1]
-            indxs = [int(i) for i in line.split(',')]
-            dotplot.append(indxs)
+# def load_tmp_dotplot():
+#     dotplot = []
+#     with open('./tmp_exact_kmers.txt', 'r') as f:
+#         while True: 
+#             # Get next line from file
+#             line = f.readline()
+#             # if line is empty
+#             # end of file is reached
+#             if not line:
+#                 break
+#             line = line[:-1]
+#             indxs = [int(i) for i in line.split(',')]
+#             dotplot.append(indxs)
     
-    dotplot_rc = []
-    with open('./tmp_rc_kmers.txt', 'r') as f:
-        while True: 
-            # Get next line from file
-            line = f.readline()
-            # if line is empty
-            # end of file is reached
-            if not line:
-                break
-            line = line[:-1]
-            indxs = [int(i) for i in line.split(',')]
-            dotplot_rc.append(indxs)
+#     dotplot_rc = []
+#     with open('./tmp_rc_kmers.txt', 'r') as f:
+#         while True: 
+#             # Get next line from file
+#             line = f.readline()
+#             # if line is empty
+#             # end of file is reached
+#             if not line:
+#                 break
+#             line = line[:-1]
+#             indxs = [int(i) for i in line.split(',')]
+#             dotplot_rc.append(indxs)
 
-    return dotplot, dotplot_rc
+#     return dotplot, dotplot_rc
 
 
 if __name__ == "__main__":
@@ -286,31 +324,35 @@ if __name__ == "__main__":
 
     print('0: start loading data')
     if args.test:
-        mouse_seq = 'AGCAGGAGATAAACCTGT'
-        human_seq = 'AGCAGGTTATCTACCTGT'
+        seq1 = 'AGCAGGAGATAAACCTGT'
+        seq2 = 'AGCAGGTTATCTACCTGT'
     else:
-        human_seq, mouse_seq = load_data()
-    print('\tlen seq1:', len(human_seq))
-    print('\tlen seq2:', len(mouse_seq))
+        seq1, seq2 = load_data()
+    print('\tlen seq1:', len(seq1))
+    print('\tlen seq2:', len(seq2))
 
     print('1: start making dotplot')
     # dotplot, dotplot_rc = make_dotplot(mouse_seq, human_seq, kmer_size)
-    make_dotplot(mouse_seq, human_seq, kmer_size)
-    del human_seq, mouse_seq
-    gc.collect()
-    dotplot, dotplot_rc = load_tmp_dotplot()
-    dotplot_sorted = sorted(dotplot)
-    dotplot_rc_sorted = sorted(dotplot_rc)
-    
-    del dotplot, dotplot_rc
+    len_dotplot, len_dotplot_rc = make_dotplot(seq2, seq1, kmer_size)
+    del seq2, seq1
     gc.collect()
 
-    print('\tnumber of points in dotplot forward:', len(dotplot_sorted))
-    print('\tnumber of points in dotplot reverse:', len(dotplot_rc_sorted))
+    print('\tnumber of points in dotplot forward:', len_dotplot)
+    print('\tnumber of points in dotplot reverse:', len_dotplot_rc)
+
+    # dotplot, dotplot_rc = load_tmp_dotplot()
+    # dotplot_sorted = sorted(dotplot)
+    # dotplot_rc_sorted = sorted(dotplot_rc)
+    
+    # del dotplot, dotplot_rc
+    # gc.collect()
+
+    # print('\tnumber of points in dotplot forward:', len(dotplot_sorted))
+    # print('\tnumber of points in dotplot reverse:', len(dotplot_rc_sorted))
 
     print('2: start making syntency blocks')
-    syntency_blocks, syntency_blocks_seq1, syntency_blocks_seq2 = find_syntency_blocks(dotplot_sorted, max_distance, min_syntency_block_size)
-    syntency_blocks_rc, syntency_blocks_rc_seq1, syntency_blocks_rc_seq2 = find_syntency_blocks(dotplot_rc_sorted, max_distance, min_syntency_block_size)
+    syntency_blocks, syntency_blocks_seq1, syntency_blocks_seq2 = find_syntency_blocks('exact',len_dotplot, max_distance, min_syntency_block_size)
+    syntency_blocks_rc, syntency_blocks_rc_seq1, syntency_blocks_rc_seq2 = find_syntency_blocks('reverce',len_dotplot_rc, max_distance, min_syntency_block_size)
     print('\tnumber of syntency_blocks forward:', len(syntency_blocks))
     print('\tnumber of syntency_blocks reverse:', len(syntency_blocks_rc))
 
